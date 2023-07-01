@@ -1,0 +1,5 @@
+1. yarn add -D @types/node typescript (for typescript support in Node)
+2. npx tsconfig.json 
+3. "watch" : "tsc -w"
+4. "start" : "node dist/index.js"
+5. yarn add @mikro-orm/cli @mikro-orm/core @mikro-orm/migrations @mikro-orm/postgresql pg
