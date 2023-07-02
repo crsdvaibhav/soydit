@@ -97,7 +97,7 @@ let UsersResolver = exports.UsersResolver = class UsersResolver {
         });
         return response;
     }
-    async login(options, { em }) {
+    async login(options, { em, req }) {
         const response = { errors: undefined, user: undefined };
         await core_1.RequestContext.createAsync(em, async () => {
             const u = await em.findOne(User_1.User, { username: options.username });
@@ -111,6 +111,7 @@ let UsersResolver = exports.UsersResolver = class UsersResolver {
                 }
                 else {
                     response.user = u;
+                    req.session.userId = u.id;
                 }
             }
         });

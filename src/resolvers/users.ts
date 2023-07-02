@@ -65,7 +65,7 @@ export class UsersResolver{
     async login(
 
         @Arg('options', ()=>UsernamePasswordInput) options:UsernamePasswordInput,
-        @Ctx() {em}: MyContext
+        @Ctx() {em,req}: MyContext
 
     ): Promise<UserResponse> {
 
@@ -84,6 +84,7 @@ export class UsersResolver{
                     response.errors = [{field : "Password", message : "Incorrect password!"}]
                 }else{
                     response.user = u
+                    req.session.userId = u.id;
                 }
             }
         })
