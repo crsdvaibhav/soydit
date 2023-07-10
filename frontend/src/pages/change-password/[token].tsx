@@ -64,7 +64,7 @@ const ChangePassword: NextPage<{token : string}> = ({token}) => {
                             mt={4}
                             type="submit"
                             isLoading={isSubmitting}
-                            variant="teal"
+                            color="green"
                         >
                             change password
                         </Button>
