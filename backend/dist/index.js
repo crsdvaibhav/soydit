@@ -17,7 +17,7 @@ const posts_1 = require("./resolvers/posts");
 const users_1 = require("./resolvers/users");
 const connect_redis_1 = __importDefault(require("connect-redis"));
 const express_session_1 = __importDefault(require("express-session"));
-const redis_1 = require("redis");
+const ioredis_1 = require("ioredis");
 const default_1 = require("@apollo/server/plugin/landingPage/default");
 let plugins = [];
 if (constants_1.__prod__) {
@@ -30,25 +30,24 @@ const main = async () => {
     const orm = await core_1.MikroORM.init(mikro_orm_config_1.default);
     await orm.getMigrator().up();
     const app = (0, express_1.default)();
-    let redisClient = (0, redis_1.createClient)();
-    redisClient.connect().catch(console.error);
+    const redis = new ioredis_1.Redis();
+    redis.connect().catch(console.error);
     let redisStore = new connect_redis_1.default({
-        client: redisClient,
-        prefix: "myapp:",
+        client: redis,
         disableTouch: true,
+    });
+    app.use((0, express_session_1.default)({
+        name: constants_1.COOKIE_NAME,
+        store: redisStore,
+        resave: false,
+        saveUninitialized: false,
+        secret: "secret",
         cookie: {
             maxAge: 1000 * 60 * 60 * 24 * 365 * 10,
             httpOnly: true,
             secure: constants_1.__prod__,
             sameSite: "lax"
         }
-    });
-    app.use((0, express_session_1.default)({
-        name: 'qid',
-        store: redisStore,
-        resave: false,
-        saveUninitialized: false,
-        secret: "secret",
     }));
     const apolloServer = new server_1.ApolloServer({
         schema: await (0, type_graphql_1.buildSchema)({
@@ -58,8 +57,8 @@ const main = async () => {
         plugins: [...plugins],
     });
     await apolloServer.start();
-    app.use('/graphql', (0, cors_1.default)({ origin: ['https://studio.apollographql.com'], credentials: true }), (0, body_parser_1.json)(), (0, express4_1.expressMiddleware)(apolloServer, {
-        context: async ({ req, res }) => ({ em: orm.em, req, res }),
+    app.use('/graphql', (0, cors_1.default)({ origin: ['https://studio.apollographql.com', 'http://localhost:3000', 'http://localhost:4000'], credentials: true }), (0, body_parser_1.json)(), (0, express4_1.expressMiddleware)(apolloServer, {
+        context: async ({ req, res }) => ({ em: orm.em, req, res, redis }),
     }));
     app.listen(4000, () => {
         console.log("Hello!");

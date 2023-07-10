@@ -1,5 +1,5 @@
 import { MikroORM } from "@mikro-orm/core"
-import { __prod__ } from "./constants"
+import { COOKIE_NAME, __prod__ } from "./constants"
 import mikroConfig from "./mikro-orm.config"
 import express from "express"
 import { ApolloServer, ApolloServerPlugin } from "@apollo/server"
@@ -12,7 +12,7 @@ import { PostsResolver } from "./resolvers/posts"
 import { UsersResolver } from "./resolvers/users"
 import RedisStore from "connect-redis"
 import session from "express-session"
-import {createClient} from "redis"
+import { Redis } from "ioredis"
 import { MyContext } from "./types"
 import { ApolloServerPluginLandingPageLocalDefault,ApolloServerPluginLandingPageProductionDefault } from '@apollo/server/plugin/landingPage/default';
 
@@ -30,30 +30,29 @@ const main = async () => {
     const app = express();
 
     // Initialize client.
-    let redisClient = createClient()
-    redisClient.connect().catch(console.error)
+    const redis = new Redis()
+    redis.connect().catch(console.error)
 
     // Initialize store.
     let redisStore = new (RedisStore as any)({
-        client: redisClient,
-        prefix: "myapp:",
+        client: redis,
         disableTouch : true, //Don't ping again and again
-        cookie : { 
-            maxAge: 1000 * 60 * 60 * 24 * 365 * 10, //10 years
-            httpOnly : true,
-            secure: __prod__,
-            sameSite: "lax" //CRSF
-        }
     })
 
     // Initialize sesssion storage.
     app.use(
         session({
-            name:'qid',
+            name:COOKIE_NAME,
             store: redisStore,
             resave: false, // required: force lightweight session keep alive (touch)
             saveUninitialized: false, // recommended: only save session when data exists
             secret: "secret",
+            cookie : { 
+                maxAge: 1000 * 60 * 60 * 24 * 365 * 10, //10 years
+                httpOnly : true,
+                secure: __prod__,
+                sameSite: "lax" //CRSF
+            }
         })
     )
     
@@ -68,10 +67,10 @@ const main = async () => {
     await apolloServer.start()
     app.use(
         '/graphql',
-        cors<cors.CorsRequest>({ origin: ['https://studio.apollographql.com'], credentials:true }),
+        cors<cors.CorsRequest>({ origin: ['https://studio.apollographql.com','http://localhost:3000','http://localhost:4000'], credentials:true }),
         json(),
         expressMiddleware(apolloServer, {
-            context : async ({req,res}) => ({em : orm.em, req, res}),
+            context : async ({req,res}) => ({em : orm.em, req, res, redis}),
         }),
       );
 
