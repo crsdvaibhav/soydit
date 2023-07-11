@@ -1,23 +1,56 @@
-import { Entity, PrimaryKey, Property } from "@mikro-orm/core";
-import { Field, Int, ObjectType } from "type-graphql";
+import "reflect-metadata"
+import { ObjectType, Field, Int } from "type-graphql";
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  BaseEntity,
+  ManyToOne,
+  OneToMany,
+} from "typeorm";
+import { User } from "./User";
+import { Upvote } from "./Upvote";
 
-@ObjectType() //To tell graphql about this schema
-@Entity() //Table
-export class Post {
+@ObjectType()
+@Entity()
+export class Post extends BaseEntity {
+  @Field()
+  @PrimaryGeneratedColumn()
+  id!: number;
 
-    @Field(()=>Int) //This will expose this field to graphql
-    @PrimaryKey() //Columns
-    id!: number;
-    
-    @Field(()=>String)
-    @Property({type:"date"})
-    createdAt?: Date = new Date();
+  @Field()
+  @Column()
+  title!: string;
 
-    @Field(()=>String)
-    @Property({ type:"date", onUpdate: () => new Date() })
-    updatedAt?: Date = new Date();
+  @Field()
+  @Column()
+  text!: string;
 
-    @Field()
-    @Property({type: "text"})
-    title!: string;
+  @Field()
+  @Column({ type: "int", default: 0 })
+  points!: number;
+
+  @Field(() => Int, { nullable: true })
+  voteStatus: number | null; // 1 or -1 or null
+
+  @Field()
+  @Column()
+  creatorId: number;
+
+  @Field()
+  @ManyToOne(() => User, (user) => user.posts)
+  creator: User;
+
+  @OneToMany(() => Upvote, (upvote) => upvote.post)
+  upvote: Upvote[];
+
+  @Field(() => String)
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @Field(() => String)
+  @UpdateDateColumn()
+  updatedAt: Date;
 }

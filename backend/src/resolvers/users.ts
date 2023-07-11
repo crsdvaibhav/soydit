@@ -1,20 +1,23 @@
+import "reflect-metadata";
 import { User } from "../entities/User";
 import {
     Arg,
     Ctx,
     Field,
+    FieldResolver,
     InputType,
     Mutation,
     ObjectType,
     Query,
     Resolver,
+    Root,
 } from "type-graphql";
 import { MyContext } from "../types";
-import { RequestContext } from "@mikro-orm/core";
 import * as argon2 from "argon2";
 import { COOKIE_NAME, FORGET_PASSWORD_PREFIX } from "../constants";
 import { v4 } from "uuid";
 import { sendEmail } from "../utils/sendEmail";
+import { AppDataSource } from "../data-source";
 
 //Instead of creating multiple args just create a class for them
 @InputType()
@@ -47,18 +50,25 @@ class UserResponse {
     user?: User;
 }
 
-@Resolver()
+const userRepository = AppDataSource.getRepository(User);
+@Resolver(User)
 export class UsersResolver {
+    @FieldResolver(() => String)
+    email(@Root() user: User, @Ctx() { req }: MyContext) {
+        // this is the current user and its ok to show them their own email
+        if (req.session.userId === user.id) {
+            return user.email;
+        }
+        // current user wants to see someone elses email
+        return "";
+    }
+
     @Mutation(() => Boolean)
     async forgotPassword(
         @Arg("email") email: string,
-        @Ctx() { em, redis }: MyContext
+        @Ctx() { redis }: MyContext
     ) {
-        let user: any = undefined;
-        await RequestContext.createAsync(em, async () => {
-            const u = await em.findOne(User, { email: email });
-            user = u;
-        });
+        const user = await userRepository.findOneBy({ email: email });
         if (!user) {
             // the email is not in the db
             return true;
@@ -81,27 +91,21 @@ export class UsersResolver {
         return true;
     }
     @Query(() => User, { nullable: true })
-    async me(@Ctx() { req, em }: MyContext) {
+    async me(@Ctx() { req }: MyContext) {
         // you are not logged in
         console.log(req.session.userId);
         if (!req.session.userId) {
             return null;
         }
-        let user: any = undefined;
-        await RequestContext.createAsync(em, async () => {
-            const u = await em.findOne(User, { id: req.session.userId });
-            user = u;
-        });
-        return user;
+        return await userRepository.findOneBy({ id: req.session.userId });
     }
     //Register
     @Mutation(() => UserResponse)
     async register(
         @Arg("options", () => UsernamePasswordInput)
         options: UsernamePasswordInput,
-        @Ctx() { em, req }: MyContext
+        @Ctx() { req }: MyContext
     ): Promise<UserResponse> {
-        const response: UserResponse = { errors: undefined, user: undefined };
         const hashedPassword = await argon2.hash(options.password);
 
         if (options.username.includes("@")) {
@@ -115,69 +119,68 @@ export class UsersResolver {
             };
         }
 
-        await RequestContext.createAsync(em, async () => {
-            const u = em.create(User, {
-                username: options.username,
-                email: options.email,
-                password: hashedPassword,
-            });
-            try {
-                await em.persistAndFlush(u);
-                response.user = u;
-            } catch (err) {
-                if (err.code === "23505") {
-                    response.errors = [
+        const user = new User();
+        user.email = options.email;
+        user.username = options.username;
+        user.password = hashedPassword;
+
+        try {
+            await userRepository.save(user);
+            return {
+                user: user,
+            };
+        } catch (err) {
+            if (err.code === "23505") {
+                return {
+                    errors: [
                         {
                             field: "username",
                             message: "Username or Email already exists!",
                         },
-                    ];
-                }
+                    ],
+                };
             }
-        });
+        }
 
-        req.session.userId = response.user?.id;
-        return response;
+        req.session.userId = user.id;
+        return { user: user };
     }
     //Login
     @Mutation(() => UserResponse)
     async login(
         @Arg("usernameOrEmail") usernameOrEmail: string,
         @Arg("password") password: string,
-        @Ctx() { em, req }: MyContext
+        @Ctx() { req }: MyContext
     ): Promise<UserResponse> {
-        const response: UserResponse = { errors: undefined, user: undefined };
+        const user = await userRepository.findOneBy(
+            usernameOrEmail.includes("@")
+                ? { email: usernameOrEmail }
+                : { username: usernameOrEmail }
+        );
 
-        await RequestContext.createAsync(em, async () => {
-            const u = await em.findOne(
-                User,
-                usernameOrEmail.includes("@")
-                    ? { email: usernameOrEmail }
-                    : { username: usernameOrEmail }
-            );
-
-            if (!u) {
-                response.errors = [
+        if (!user) {
+            return {
+                errors: [
                     {
                         field: "usernameOrEmail",
                         message: "That username does not exist!",
                     },
-                ];
-            } else {
-                const valid = await argon2.verify(u.password, password);
+                ],
+            };
+        } else {
+            const valid = await argon2.verify(user.password, password);
 
-                if (!valid) {
-                    response.errors = [
+            if (!valid) {
+                return {
+                    errors: [
                         { field: "password", message: "Incorrect password!" },
-                    ];
-                } else {
-                    response.user = u;
-                }
+                    ],
+                };
             }
-        });
+        }
 
-        req.session.userId = response.user?.id;
-        return response;
+        req.session.userId = user.id;
+        return { user: user };
     }
     @Mutation(() => Boolean)
     logout(@Ctx() { req, res }: MyContext) {
@@ -198,9 +201,8 @@ export class UsersResolver {
     async changePassword(
         @Arg("token") token: string,
         @Arg("newPassword") newPassword: string,
-        @Ctx() { em, redis, req }: MyContext
+        @Ctx() { redis, req }: MyContext
     ): Promise<UserResponse> {
-
         const key = FORGET_PASSWORD_PREFIX + token;
         const userId = await redis.get(key);
         if (!userId) {
@@ -215,12 +217,7 @@ export class UsersResolver {
         }
 
         const userIdNum = parseInt(userId);
-        
-        let user: any = undefined;
-        await RequestContext.createAsync(em, async () => {
-            const u = await em.findOne(User, { id: userIdNum });
-            user = u;
-        });
+        const user = await userRepository.findOneBy({ id: userIdNum });
 
         if (!user) {
             return {
@@ -233,11 +230,8 @@ export class UsersResolver {
             };
         }
 
-        await RequestContext.createAsync(em, async () => {
-            user.password = await argon2.hash(newPassword);
-            await em.persistAndFlush(user);
-        });
-        
+        user.password = await argon2.hash(newPassword);
+        await userRepository.save(user);
 
         await redis.del(key);
 

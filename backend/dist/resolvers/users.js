@@ -36,13 +36,14 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UsersResolver = void 0;
+require("reflect-metadata");
 const User_1 = require("../entities/User");
 const type_graphql_1 = require("type-graphql");
-const core_1 = require("@mikro-orm/core");
 const argon2 = __importStar(require("argon2"));
 const constants_1 = require("../constants");
 const uuid_1 = require("uuid");
 const sendEmail_1 = require("../utils/sendEmail");
+const data_source_1 = require("../data-source");
 let UsernamePasswordInput = class UsernamePasswordInput {
 };
 __decorate([
@@ -86,13 +87,16 @@ __decorate([
 UserResponse = __decorate([
     (0, type_graphql_1.ObjectType)()
 ], UserResponse);
+const userRepository = data_source_1.AppDataSource.getRepository(User_1.User);
 let UsersResolver = exports.UsersResolver = class UsersResolver {
-    async forgotPassword(email, { em, redis }) {
-        let user = undefined;
-        await core_1.RequestContext.createAsync(em, async () => {
-            const u = await em.findOne(User_1.User, { email: email });
-            user = u;
-        });
+    email(user, { req }) {
+        if (req.session.userId === user.id) {
+            return user.email;
+        }
+        return "";
+    }
+    async forgotPassword(email, { redis }) {
+        const user = await userRepository.findOneBy({ email: email });
         if (!user) {
             return true;
         }
@@ -101,21 +105,14 @@ let UsersResolver = exports.UsersResolver = class UsersResolver {
         await (0, sendEmail_1.sendEmail)(email, `<a href="http://localhost:3000/change-password/${token}">reset password</a>`);
         return true;
     }
-    async me({ req, em }) {
+    async me({ req }) {
         console.log(req.session.userId);
         if (!req.session.userId) {
             return null;
         }
-        let user = undefined;
-        await core_1.RequestContext.createAsync(em, async () => {
-            const u = await em.findOne(User_1.User, { id: req.session.userId });
-            user = u;
-        });
-        return user;
+        return await userRepository.findOneBy({ id: req.session.userId });
     }
-    async register(options, { em, req }) {
-        var _a;
-        const response = { errors: undefined, user: undefined };
+    async register(options, { req }) {
         const hashedPassword = await argon2.hash(options.password);
         if (options.username.includes("@")) {
             return {
@@ -127,59 +124,57 @@ let UsersResolver = exports.UsersResolver = class UsersResolver {
                 ],
             };
         }
-        await core_1.RequestContext.createAsync(em, async () => {
-            const u = em.create(User_1.User, {
-                username: options.username,
-                email: options.email,
-                password: hashedPassword,
-            });
-            try {
-                await em.persistAndFlush(u);
-                response.user = u;
-            }
-            catch (err) {
-                if (err.code === "23505") {
-                    response.errors = [
+        const user = new User_1.User();
+        user.email = options.email;
+        user.username = options.username;
+        user.password = hashedPassword;
+        try {
+            await userRepository.save(user);
+            return {
+                user: user,
+            };
+        }
+        catch (err) {
+            if (err.code === "23505") {
+                return {
+                    errors: [
                         {
                             field: "username",
                             message: "Username or Email already exists!",
                         },
-                    ];
-                }
+                    ],
+                };
             }
-        });
-        req.session.userId = (_a = response.user) === null || _a === void 0 ? void 0 : _a.id;
-        return response;
+        }
+        req.session.userId = user.id;
+        return { user: user };
     }
-    async login(usernameOrEmail, password, { em, req }) {
-        var _a;
-        const response = { errors: undefined, user: undefined };
-        await core_1.RequestContext.createAsync(em, async () => {
-            const u = await em.findOne(User_1.User, usernameOrEmail.includes("@")
-                ? { email: usernameOrEmail }
-                : { username: usernameOrEmail });
-            if (!u) {
-                response.errors = [
+    async login(usernameOrEmail, password, { req }) {
+        const user = await userRepository.findOneBy(usernameOrEmail.includes("@")
+            ? { email: usernameOrEmail }
+            : { username: usernameOrEmail });
+        if (!user) {
+            return {
+                errors: [
                     {
                         field: "usernameOrEmail",
                         message: "That username does not exist!",
                     },
-                ];
-            }
-            else {
-                const valid = await argon2.verify(u.password, password);
-                if (!valid) {
-                    response.errors = [
+                ],
+            };
+        }
+        else {
+            const valid = await argon2.verify(user.password, password);
+            if (!valid) {
+                return {
+                    errors: [
                         { field: "password", message: "Incorrect password!" },
-                    ];
-                }
-                else {
-                    response.user = u;
-                }
+                    ],
+                };
             }
-        });
-        req.session.userId = (_a = response.user) === null || _a === void 0 ? void 0 : _a.id;
-        return response;
+        }
+        req.session.userId = user.id;
+        return { user: user };
     }
     logout({ req, res }) {
         return new Promise((resolve) => req.session.destroy((err) => {
@@ -192,7 +187,7 @@ let UsersResolver = exports.UsersResolver = class UsersResolver {
             resolve(true);
         }));
     }
-    async changePassword(token, newPassword, { em, redis, req }) {
+    async changePassword(token, newPassword, { redis, req }) {
         const key = constants_1.FORGET_PASSWORD_PREFIX + token;
         const userId = await redis.get(key);
         if (!userId) {
@@ -206,11 +201,7 @@ let UsersResolver = exports.UsersResolver = class UsersResolver {
             };
         }
         const userIdNum = parseInt(userId);
-        let user = undefined;
-        await core_1.RequestContext.createAsync(em, async () => {
-            const u = await em.findOne(User_1.User, { id: userIdNum });
-            user = u;
-        });
+        const user = await userRepository.findOneBy({ id: userIdNum });
         if (!user) {
             return {
                 errors: [
@@ -221,15 +212,21 @@ let UsersResolver = exports.UsersResolver = class UsersResolver {
                 ],
             };
         }
-        await core_1.RequestContext.createAsync(em, async () => {
-            user.password = await argon2.hash(newPassword);
-            await em.persistAndFlush(user);
-        });
+        user.password = await argon2.hash(newPassword);
+        await userRepository.save(user);
         await redis.del(key);
         req.session.userId = user.id;
         return { user };
     }
 };
+__decorate([
+    (0, type_graphql_1.FieldResolver)(() => String),
+    __param(0, (0, type_graphql_1.Root)()),
+    __param(1, (0, type_graphql_1.Ctx)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [User_1.User, Object]),
+    __metadata("design:returntype", void 0)
+], UsersResolver.prototype, "email", null);
 __decorate([
     (0, type_graphql_1.Mutation)(() => Boolean),
     __param(0, (0, type_graphql_1.Arg)("email")),
@@ -279,6 +276,6 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], UsersResolver.prototype, "changePassword", null);
 exports.UsersResolver = UsersResolver = __decorate([
-    (0, type_graphql_1.Resolver)()
+    (0, type_graphql_1.Resolver)(User_1.User)
 ], UsersResolver);
 //# sourceMappingURL=users.js.map

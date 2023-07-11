@@ -2,12 +2,15 @@ import React from "react";
 import { Box, Link, Flex, Button, Heading } from "@chakra-ui/react";
 import NextLink from "next/link";
 import { useMeQuery, useLogoutMutation } from "../generated/graphql";
+import { isServer } from "../utils/isServer";
 
 interface NavBarProps {}
 
 export const NavBar: React.FC<NavBarProps> = ({}) => {
   const [{ fetching: logoutFetching}, logout] = useLogoutMutation();
-  const [{ data, fetching }] = useMeQuery();
+  const [{ data, fetching }] = useMeQuery({
+    pause:isServer()
+  });
 
   let body = null;
 
@@ -18,10 +21,10 @@ export const NavBar: React.FC<NavBarProps> = ({}) => {
     body = (
       <>
         <NextLink href="/login">
-          <Link mr={2} as="span">login</Link>
+          <Link as="span" mx={4} px={6} fontWeight={600} bg={"white"} textColor={"black"} textAlign={"center"} fontSize={20} rounded={"md"} py={1}>login</Link>
         </NextLink>
         <NextLink href="/register">
-          <Link as="span">register</Link>
+          <Link as="span" mx={4} px={4} fontWeight={600} bg={"white"} textColor={"black"} textAlign={"center"} fontSize={20} rounded={"md"} py={1}>register</Link>
         </NextLink>
       </>
     );
@@ -30,20 +33,21 @@ export const NavBar: React.FC<NavBarProps> = ({}) => {
     body = (
       <Flex align="center">
         <NextLink href="/create-post">
-          <Button as={Link} mr={4}>
-            create post
+          <Button as={Link} mx={4} width={28}>
+            Create post
           </Button>
         </NextLink>
-        <Box mr={2}>{data.me.username}</Box>
         <Button
+          as="span"
           onClick={() => {
             logout();
           }}
           isLoading={logoutFetching}
-          variant="link"
+          width={28}
         >
-          logout
+          Logout
         </Button>
+        <Box mx={4} width={28} bg={"black"} textColor={"white"} textAlign={"center"} fontSize={20} rounded={"md"} py={1}>{data.me.username}</Box>
       </Flex>
     );
   }

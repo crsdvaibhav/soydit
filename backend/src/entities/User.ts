@@ -1,30 +1,46 @@
-import { Entity, PrimaryKey, Property } from "@mikro-orm/core";
-import { Field, Int, ObjectType } from "type-graphql";
+import "reflect-metadata"
+import { ObjectType, Field } from "type-graphql";
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  Column,
+  BaseEntity,
+  OneToMany,
+} from "typeorm";
+import { Post } from "./Post";
+import { Upvote } from "./Upvote";
 
-@ObjectType() //To tell graphql about this schema
-@Entity() //Table
-export class User {
+@ObjectType()
+@Entity()
+export class User extends BaseEntity {
+  @Field()
+  @PrimaryGeneratedColumn()
+  id!: number;
 
-    @Field(()=>Int) //This will expose this field to graphql
-    @PrimaryKey() //Columns
-    id!: number;
-    
-    @Field(()=>String)
-    @Property({type:"date"})
-    createdAt?: Date = new Date();
+  @Field()
+  @Column({ unique: true })
+  username!: string;
 
-    @Field(()=>String)
-    @Property({ type:"date", onUpdate: () => new Date() })
-    updatedAt?: Date = new Date();
+  @Field()
+  @Column({ unique: true })
+  email!: string;
 
-    @Field()
-    @Property({type: "text", unique:true})
-    username!: string;
+  @Column()
+  password!: string;
 
-    @Field()
-    @Property({type: "text", unique:true})
-    email!: string;
+  @OneToMany(() => Post, (post) => post.creator)
+  posts: Post[];
 
-    @Property({type:"text"})
-    password!: string;
+  @OneToMany(() => Upvote, (upvote) => upvote.user)
+  upvote: Upvote[];
+
+  @Field(() => String)
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @Field(() => String)
+  @UpdateDateColumn()
+  updatedAt: Date;
 }
