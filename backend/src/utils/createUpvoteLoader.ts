@@ -1,4 +1,4 @@
-import { In } from "typeorm/find-options/operator/In";
+// import { In } from "typeorm/find-options/operator/In";
 import { Upvote } from "../entities/Upvote";
 import DataLoader from "dataloader";
 
@@ -7,7 +7,7 @@ import DataLoader from "dataloader";
 export const createUpvoteLoader = () =>
     new DataLoader<{ postId: number; userId: number }, Upvote | null>(
         async (keys) => {
-            const upvote = await Upvote.findBy({ id: In(keys) } as any);
+            const upvote = await Upvote.find({ keys } as any);
             const upvoteIdsToUpvote: Record<string, Upvote> = {};
             upvote.forEach((updoot) => {
                 upvoteIdsToUpvote[`${updoot.userId}|${updoot.postId}`] = updoot;

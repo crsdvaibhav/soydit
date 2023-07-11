@@ -129,7 +129,7 @@ export class PostsResolver {
         }
         const posts = await AppDataSource.getRepository(Post).query(
             `
-            SELECT p.* ,
+            SELECT p.*
             FROM post p
             ${cursor ? `where p."createdAt" < $2` : ""}
             order by p."createdAt" DESC

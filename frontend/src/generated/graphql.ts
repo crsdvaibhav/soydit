@@ -110,7 +110,6 @@ export type PostInput = {
 
 export type Query = {
   __typename?: 'Query';
-  hello: Scalars['String']['output'];
   me?: Maybe<User>;
   post?: Maybe<Post>;
   posts: PaginatedPosts;
@@ -147,8 +146,6 @@ export type UsernamePasswordInput = {
   password: Scalars['String']['input'];
   username: Scalars['String']['input'];
 };
-
-export type PostSnippetFragment = { __typename?: 'Post', id: number, createdAt: string, updatedAt: string, title: string, points: number, textSnippet: string, voteStatus?: number | null, creator: { __typename?: 'User', id: number, username: string } } & { ' $fragmentName'?: 'PostSnippetFragment' };
 
 export type ChangePasswordMutationVariables = Exact<{
   token: Scalars['String']['input'];
@@ -236,21 +233,6 @@ export type PostsQueryVariables = Exact<{
 
 export type PostsQuery = { __typename?: 'Query', posts: { __typename?: 'PaginatedPosts', hasMore: boolean, posts: Array<{ __typename?: 'Post', id: number, createdAt: string, updatedAt: string, title: string, points: number, textSnippet: string, voteStatus?: number | null, creator: { __typename?: 'User', id: number, username: string } }> } };
 
-export const PostSnippetFragmentDoc = gql`
-    fragment PostSnippet on Post {
-  id
-  createdAt
-  updatedAt
-  title
-  points
-  textSnippet
-  voteStatus
-  creator {
-    id
-    username
-  }
-}
-    `;
 export const ChangePasswordDocument = gql`
     mutation ChangePassword($token: String!, $newPassword: String!) {
   changePassword(token: $token, newPassword: $newPassword) {
