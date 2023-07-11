@@ -13,4 +13,5 @@ export const AppDataSource = new DataSource({
     database: "soydit",
     synchronize: true,
     entities: [Post, User, Upvote],
+    logging: true
 });

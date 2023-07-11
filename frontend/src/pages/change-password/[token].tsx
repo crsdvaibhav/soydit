@@ -7,8 +7,6 @@ import InputField from "../../components/InputField";
 import { Box, Button, Link, Flex } from "@chakra-ui/react";
 import {
     useChangePasswordMutation,
-    MeDocument,
-    MeQuery,
 } from "../../generated/graphql";
 import { useRouter } from "next/router";
 import { withUrqlClient } from "next-urql";
@@ -66,7 +64,7 @@ const ChangePassword: NextPage = () => {
                             isLoading={isSubmitting}
                             color="green"
                         >
-                            change password
+                            Change password
                         </Button>
                     </Form>
                 )}

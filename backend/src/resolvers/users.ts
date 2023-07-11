@@ -91,13 +91,12 @@ export class UsersResolver {
         return true;
     }
     @Query(() => User, { nullable: true })
-    async me(@Ctx() { req }: MyContext) {
+    me(@Ctx() { req }: MyContext) {
         // you are not logged in
-        console.log(req.session.userId);
         if (!req.session.userId) {
             return null;
         }
-        return await userRepository.findOneBy({ id: req.session.userId });
+        return userRepository.findOneBy({ id: req.session.userId });
     }
     //Register
     @Mutation(() => UserResponse)

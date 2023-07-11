@@ -22,7 +22,7 @@ const CreatePost: React.FC<{}> = ({}) => {
                         input: values,
                     });
                     if (!error) {
-                        router.push("/");
+                        router.back();
                     }
                 }}
             >

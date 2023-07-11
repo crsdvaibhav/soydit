@@ -13,7 +13,6 @@ import { Resolver, cacheExchange, Cache } from "@urql/exchange-graphcache";
 import { pipe, tap } from "wonka";
 import Router from "next/router";
 import gql from "graphql-tag";
-import { PostSnippetFragment } from "../generated/graphql";
 import { isServer } from "./isServer";
 
 const errorExchange: Exchange =
@@ -78,7 +77,7 @@ function invalidateAllPosts(cache: Cache) {
 export const createUrqlClient = (ssrExchange: any, ctx :any) => {
     let cookie = "";
     if(isServer()){
-        cookie = ctx.req.headers.cookie;
+        cookie = ctx?.req?.headers?.cookie;
     }
     return {
     url: "http://localhost:4000/graphql",
@@ -160,6 +159,7 @@ export const createUrqlClient = (ssrExchange: any, ctx :any) => {
                                 }
                             }
                         );
+                        invalidateAllPosts(cache);
                     },
                     register: (_result, args, cache, info) => {
                         betterUpdateQuery<RegisterMutation, MeQuery>(

@@ -6,7 +6,6 @@ import { expressMiddleware } from "@apollo/server/express4";
 import cors from "cors";
 import { json } from "body-parser";
 import { buildSchema } from "type-graphql";
-import { HelloResolver } from "./resolvers/hello";
 import { PostsResolver } from "./resolvers/posts";
 import { UsersResolver } from "./resolvers/users";
 import RedisStore from "connect-redis";
@@ -18,6 +17,8 @@ import {
     ApolloServerPluginLandingPageProductionDefault,
 } from "@apollo/server/plugin/landingPage/default";
 import { AppDataSource } from "./data-source";
+import { createUserLoader } from "./utils/createUserLoader";
+import { createUpvoteLoader } from "./utils/createUpvoteLoader";
 
 let plugins: ApolloServerPlugin<MyContext>[] = [];
 if (__prod__) {
@@ -41,7 +42,7 @@ const main = async () => {
     //Initialise the DB
     AppDataSource.initialize()
         .then(() => {
-            console.log("Data Source has been initialized!");
+            console.log("Database is ready!");
         })
         .catch((err) => {
             console.error("Error during Data Source initialization:", err);
@@ -78,7 +79,7 @@ const main = async () => {
 
     const apolloServer = new ApolloServer<MyContext>({
         schema: await buildSchema({
-            resolvers: [HelloResolver, PostsResolver, UsersResolver],
+            resolvers: [PostsResolver, UsersResolver],
             validate: false,
         }),
         plugins: [...plugins],
@@ -97,12 +98,12 @@ const main = async () => {
         }),
         json(),
         expressMiddleware(apolloServer, {
-            context: async ({ req, res }) => ({ req, res, redis }),
+            context: async ({ req, res }) => ({ req, res, redis, userLoader: createUserLoader(), upvoteLoader: createUpvoteLoader(), }),
         })
     );
 
     app.listen(4000, () => {
-        console.log("Hello!");
+        console.log(`Server stared on port: ${4000}`);
     });
 };
 

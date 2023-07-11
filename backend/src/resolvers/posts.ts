@@ -18,6 +18,7 @@ import {
 import { isAuth } from "../middleware/isAuth";
 import { MyContext } from "../types";
 import { Upvote } from "../entities/Upvote";
+import { User } from "../entities/User";
 
 @InputType()
 class PostInput {
@@ -44,22 +45,28 @@ export class PostsResolver {
         return post.text.slice(0, 50);
     }
 
-    // @FieldResolver(() => Int, { nullable: true })
-    // async voteStatus(
-    //     @Root() post: Post,
-    //     @Ctx() { updootLoader, req }: MyContext
-    // ) {
-    //     if (!req.session.userId) {
-    //         return null;
-    //     }
+    @FieldResolver(() => User)
+    creator(@Root() post: Post, @Ctx() { userLoader }: MyContext) {
+        console.log("Hello!")
+        return userLoader.load(post.creatorId);
+    }
 
-    //     const updoot = await updootLoader.load({
-    //         postId: post.id,
-    //         userId: req.session.userId,
-    //     });
+    @FieldResolver(() => Int, { nullable: true })
+    async voteStatus(
+        @Root() post: Post,
+        @Ctx() { upvoteLoader, req }: MyContext
+    ) {
+        if (!req.session.userId) {
+            return null;
+        }
 
-    //     return updoot ? updoot.value : null;
-    // }
+        const upvote = await upvoteLoader.load({
+            postId: post.id,
+            userId: req.session.userId,
+        });
+
+        return upvote ? upvote.value : null;
+    }
 
     @Mutation(() => Boolean)
     @UseMiddleware(isAuth)
@@ -113,10 +120,9 @@ export class PostsResolver {
     async posts(
         @Arg("limit", () => Int) limit: number,
         @Arg("cursor", () => String, { nullable: true }) cursor: string | null,
-        @Ctx() { req }: MyContext
     ): Promise<PaginatedPosts> {
         const realLimit = Math.min(50, limit);
-        const replacements: any[] = [];
+        const replacements: any[] = [realLimit+1];
 
         if (cursor) {
             replacements.push(new Date(parseInt(cursor)));
@@ -124,21 +130,10 @@ export class PostsResolver {
         const posts = await AppDataSource.getRepository(Post).query(
             `
             SELECT p.* ,
-            json_build_object(
-                'id', u.id,
-                'username', u.username,
-                'email', u.email
-                ) creator,
-            ${
-                req.session.userId
-                    ? `(SELECT value FROM upvote WHERE "userId" = ${req.session.userId} AND "postId" = p.id) "voteStatus"`
-                    : `null as "voteStatus"`
-            }
             FROM post p
-            INNER JOIN public.user u on u.id = p."creatorId"
-            ${cursor ? `where p."createdAt" < $1` : ""}
+            ${cursor ? `where p."createdAt" < $2` : ""}
             order by p."createdAt" DESC
-            limit ${realLimit + 1}
+            limit $1
             `,
             replacements
         );
@@ -150,6 +145,7 @@ export class PostsResolver {
     }
     //Getting a single post
     @Query(() => Post, { nullable: true })
+    @UseMiddleware(isAuth)
     async post(@Arg("id", () => Int) id: number): Promise<Post | null> {
         return await postRepository.findOneBy({ id: id });
     }
@@ -174,8 +170,8 @@ export class PostsResolver {
     @UseMiddleware(isAuth)
     async updatePost(
         @Arg("id", () => Int) id: number,
-        @Arg("title", ()=>String) title: string,
-        @Arg("text", ()=>String) text: string,
+        @Arg("title", () => String) title: string,
+        @Arg("text", () => String) text: string,
         @Ctx() { req }: MyContext
     ): Promise<Post | null> {
         const result = await AppDataSource.createQueryBuilder()
