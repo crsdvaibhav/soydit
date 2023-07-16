@@ -112,7 +112,7 @@ export const createUrqlClient = (ssrExchange: any, ctx :any) => {
                             { id: postId } as any
                         );
                         if (data) {
-                            if(data.voteStatus == value){
+                            if(data.voteStatus === value){
                                 return
                             }
                             const newPoints = (data.points as number) + (!data.voteStatus ? 1 : 2) * value;
@@ -123,7 +123,7 @@ export const createUrqlClient = (ssrExchange: any, ctx :any) => {
                                         voteStatus
                                     }
                                 `,
-                                { id: postId, points: newPoints, voteStaus: value } as any
+                                { id: postId, points: newPoints, voteStatus: value } as any
                             );
                         }
                     },

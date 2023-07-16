@@ -39,7 +39,7 @@ const Index = () => {
     return (
         <Layout>
             {!data && fetching ? (
-                <div>loading...</div>
+                <div>Loading...</div>
             ) : (
                 <Stack spacing={8}>
                     {data!.posts.posts.map((p) =>

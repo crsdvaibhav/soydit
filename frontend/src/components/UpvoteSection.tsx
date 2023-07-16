@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Flex, IconButton } from "@chakra-ui/react";
 import { PostsQuery, useVoteMutation } from "../generated/graphql";
 import { ChevronDownIcon, ChevronUpIcon } from "@chakra-ui/icons";
@@ -11,6 +11,7 @@ export const UpvoteSection: React.FC<UpvoteSectionProps> = ({ post }) => {
     const [loadingState, setLoadingState] = useState<
         "upvote-loading" | "downvote-loading" | "not-loading"
     >("not-loading");
+
     const [, vote] = useVoteMutation();
     return (
         <Flex
