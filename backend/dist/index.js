@@ -47,7 +47,7 @@ const main = async () => {
         console.error("Error during Data Source initialization:", err);
     });
     const app = (0, express_1.default)();
-    const redis = new ioredis_1.Redis();
+    const redis = new ioredis_1.Redis(process.env.REDIS_URL);
     redis.connect().catch(console.error);
     let redisStore = new connect_redis_1.default({
         client: redis,
@@ -58,7 +58,7 @@ const main = async () => {
         store: redisStore,
         resave: false,
         saveUninitialized: false,
-        secret: "secret",
+        secret: process.env.SESSION_SECRET,
         cookie: {
             maxAge: 1000 * 60 * 60 * 24 * 365 * 10,
             httpOnly: true,
@@ -84,7 +84,7 @@ const main = async () => {
     }), (0, body_parser_1.json)(), (0, express4_1.expressMiddleware)(apolloServer, {
         context: async ({ req, res }) => ({ req, res, redis, userLoader: (0, createUserLoader_1.createUserLoader)(), upvoteLoader: (0, createUpvoteLoader_1.createUpvoteLoader)(), }),
     }));
-    app.listen(4000, () => {
+    app.listen(parseInt(process.env.PORT), () => {
         console.log(`Server stared on port: ${4000}`);
     });
 };

@@ -5,24 +5,25 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sendEmail = void 0;
 const nodemailer_1 = __importDefault(require("nodemailer"));
+require("dotenv-safe/config");
 async function sendEmail(to, html) {
     let transporter = nodemailer_1.default.createTransport({
-        host: "smtp.ethereal.email",
+        service: "gmail",
+        host: "smtp.gmail.com",
         port: 587,
         secure: false,
         auth: {
-            user: "norene.wilderman2@ethereal.email",
-            pass: "ugWAtA5Xtp92KVk4mW",
+            user: process.env.MAILID + "@gmail.com",
+            pass: process.env.PASSWORD,
         },
     });
     let info = await transporter.sendMail({
-        from: '"Fred Foo 👻" <foo@example.com>',
+        from: 'Soydit',
         to: to,
         subject: "Change password",
         html,
     });
     console.log("Message sent: %s", info.messageId);
-    console.log("Preview URL: %s", nodemailer_1.default.getTestMessageUrl(info));
 }
 exports.sendEmail = sendEmail;
 //# sourceMappingURL=sendEmail.js.map

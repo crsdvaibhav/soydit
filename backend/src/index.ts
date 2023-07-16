@@ -51,7 +51,7 @@ const main = async () => {
     const app = express();
 
     // Initialize client.
-    const redis = new Redis();
+    const redis = new Redis(process.env.REDIS_URL);
     redis.connect().catch(console.error);
 
     // Initialize store.
@@ -67,7 +67,7 @@ const main = async () => {
             store: redisStore,
             resave: false, // required: force lightweight session keep alive (touch)
             saveUninitialized: false, // recommended: only save session when data exists
-            secret: "secret",
+            secret: process.env.SESSION_SECRET,
             cookie: {
                 maxAge: 1000 * 60 * 60 * 24 * 365 * 10, //10 years
                 httpOnly: true,
@@ -102,7 +102,7 @@ const main = async () => {
         })
     );
 
-    app.listen(4000, () => {
+    app.listen(parseInt(process.env.PORT), () => {
         console.log(`Server stared on port: ${4000}`);
     });
 };
